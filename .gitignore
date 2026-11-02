@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+pretrained_model/
+UA-BCD_work_dirs/
+train_output/
+results/
+*.log
+*.tmp

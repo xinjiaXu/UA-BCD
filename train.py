@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = '4'
 import numpy as np
 from datetime import datetime
 from utils import dataloader
@@ -169,11 +168,17 @@ if __name__ == '__main__':
                         help='')
     parser.add_argument('--save_path', type=str,
                             default='./train_output/UABCD/')
+    parser.add_argument('--dataset-root', type=str, default=None)
+    parser.add_argument('--train-root', type=str, default=None)
+    parser.add_argument('--val-root', type=str, default=None)
+    parser.add_argument('--image-dir-a', type=str, default='A')
+    parser.add_argument('--image-dir-b', type=str, default='B')
+    parser.add_argument('--label-dir', type=str, default='label')
+    parser.add_argument('--num-workers', type=int, default=4)
     opt = parser.parse_args()
 
-    save_path = opt.save_path + opt.data_name + '/'
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
+    save_path = os.path.join(opt.save_path, opt.data_name)
+    os.makedirs(save_path, exist_ok=True)
 
     print('UABCD Learning Rate: {}'.format(opt.lr_uabcd))
     print('PUA Learning Rate: {}'.format(opt.lr_eue))
@@ -190,7 +195,11 @@ if __name__ == '__main__':
     EUE_Model_optimizer = torch.optim.Adam(EUE_Model_params, opt.lr_eue)
 
     # set path
-    if opt.data_name == 'LEVIR':
+    if opt.dataset_root:
+        opt.train_root = opt.train_root or os.path.join(opt.dataset_root, 'train')
+        opt.val_root = opt.val_root or os.path.join(opt.dataset_root, 'val')
+        palatte = [[0, 0, 0], [255, 255, 255]]
+    elif opt.data_name == 'LEVIR':
         opt.train_root = './Data/Change_Detection/LEVIR-CD_cropped256/train/' 
         opt.val_root = './Data/Change_Detection/LEVIR-CD_cropped256/val/'
         palatte = [[0,0,0], [255,255,255]]
@@ -212,11 +221,21 @@ if __name__ == '__main__':
         palatte = [[0,0,0], [255,255,255]]
 
 
-    train_loader = dataloader.get_loader(img_A_root = opt.train_root + 'A/', img_B_root = opt.train_root + 'B/', gt_root = opt.train_root + 'label/', trainsize = opt.trainsize, palatte = palatte, mode ='train', batchsize = opt.batchsize, mosaic_ratio=0.25, num_workers=4, shuffle=True, pin_memory=True)
-    test_loader = dataloader.get_loader(img_A_root = opt.val_root + 'A/', img_B_root = opt.val_root + 'B/', gt_root = opt.val_root + 'label/', trainsize = opt.trainsize, palatte = palatte, mode ='val', batchsize = opt.batchsize, mosaic_ratio=0, num_workers=4, shuffle=False, pin_memory=True)
+    train_loader = dataloader.get_loader(
+        img_A_root=os.path.join(opt.train_root, opt.image_dir_a) + os.sep,
+        img_B_root=os.path.join(opt.train_root, opt.image_dir_b) + os.sep,
+        gt_root=os.path.join(opt.train_root, opt.label_dir) + os.sep,
+        trainsize=opt.trainsize, palatte=palatte, mode='train', batchsize=opt.batchsize,
+        mosaic_ratio=0.25, num_workers=opt.num_workers, shuffle=True, pin_memory=True)
+    test_loader = dataloader.get_loader(
+        img_A_root=os.path.join(opt.val_root, opt.image_dir_a) + os.sep,
+        img_B_root=os.path.join(opt.val_root, opt.image_dir_b) + os.sep,
+        gt_root=os.path.join(opt.val_root, opt.label_dir) + os.sep,
+        trainsize=opt.trainsize, palatte=palatte, mode='val', batchsize=opt.batchsize,
+        mosaic_ratio=0, num_workers=opt.num_workers, shuffle=False, pin_memory=True)
     total_step = len(train_loader)
 
-    logging.basicConfig(filename=save_path+'log.log', format='[%(asctime)s-%(filename)s-%(levelname)s:%(message)s]',
+    logging.basicConfig(filename=os.path.join(save_path, 'log.log'), format='[%(asctime)s-%(filename)s-%(levelname)s:%(message)s]',
                         level=logging.INFO,filemode='a',datefmt='%Y-%m-%d %I:%M:%S %p')
     logging.info("UABCD-Train")
     logging.info("Config")
@@ -238,7 +257,7 @@ if __name__ == '__main__':
         uabcd_lr = adjust_lr(BCD_Model_optimizer, opt.lr_uabcd, epoch, 0.1, opt.decay_epoch)
         eue_lr = adjust_lr(EUE_Model_optimizer, opt.lr_eue, 0.1, opt.decay_epoch)
         Train(train_loader, BCD_Model, EUE_Model, BCD_Model_optimizer, EUE_Model_optimizer, epoch, Eva_tr)
-        Val(test_loader, BCD_Model, EUE_Model, epoch, Eva_val, save_path)
+        Val(test_loader, BCD_Model, EUE_Model, epoch, Eva_val, save_path + os.sep)
 
 
 
