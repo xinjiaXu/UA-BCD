@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -117,17 +118,20 @@ class Epistemic_Uncertainty_Estimation(nn.Module):
 
 
 class UABCD(nn.Module):
-    def __init__(self,latent_dim, num_classes):
+    def __init__(self, latent_dim, num_classes, pretrained=True,
+                 pretrained_path='./pretrained_model/pvt_v2_b2.pth'):
         super(UABCD, self).__init__()
         channel = 128
 
         self.backbone = pvt_v2_b2()  
-        path = './pretrained_model/pvt_v2_b2.pth'
-        save_model = torch.load(path)
-        model_dict = self.backbone.state_dict()
-        state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
-        model_dict.update(state_dict)
-        self.backbone.load_state_dict(model_dict)
+        if pretrained:
+            if not os.path.isfile(pretrained_path):
+                raise FileNotFoundError(f'PVT-v2-B2 pretrained weights not found: {pretrained_path}')
+            save_model = torch.load(pretrained_path, map_location='cpu')
+            model_dict = self.backbone.state_dict()
+            state_dict = {k: v for k, v in save_model.items() if k in model_dict.keys()}
+            model_dict.update(state_dict)
+            self.backbone.load_state_dict(model_dict)
 
         self.conv1 = BasicConv2d(2*64, 64, 1)
         self.conv2 = BasicConv2d(2*128, 128, 1)

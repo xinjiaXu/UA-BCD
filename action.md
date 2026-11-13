@@ -33,6 +33,20 @@ bash prepare_server_data.sh /home/xxj/Data
 
 The model loads PVT-v2-B2 from `pretrained_model/pvt_v2_b2.pth`. The official README links the authors' Baidu Disk download (extraction code `abmg`). Download/extract that weight and place it at the exact path above before training. Checkpoints and logs are ignored by Git.
 
+## Parameters and FLOPs
+
+The profiler measures the UABCD inference network used by `test.py`; it excludes EUE, which is an auxiliary training-time module. Profiling uses batch 1 and a pair of 256x256 RGB images. It initializes the backbone randomly, so no PVT checkpoint is needed for profiling.
+
+```bash
+cd /home/xxj/code/DINOCLIP_comparative_test/UA-BCD
+conda activate uabcd-rs
+python -m pip install -r requirements_profile.txt
+CUDA_VISIBLE_DEVICES=0 python profile_model.py --device cuda:0 \
+  --output UA-BCD_work_dirs/profile_256.json
+```
+
+Use `Size(M)` and `Flops(G)` from the output. If `unsupported_ops` is non-empty, report the FLOPs as partial under fvcore's convention of one multiply-add counted as one FLOP.
+
 ## Dataset layout
 
 The wrappers use the existing server folders directly; no dataset copy or generated list file is needed.
